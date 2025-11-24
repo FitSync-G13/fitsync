@@ -1,0 +1,293 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Databases
+  userdb:
+    image: postgres:15-alpine
+    container_name: fitsync-userdb
+    environment:
+      POSTGRES_DB: userdb
+      POSTGRES_USER: fitsync
+      POSTGRES_PASSWORD: fitsync123
+    ports:
+      - "5432:5432"
+    volumes:
+      - userdb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitsync -d userdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  trainingdb:
+    image: postgres:15-alpine
+    container_name: fitsync-trainingdb
+    environment:
+      POSTGRES_DB: trainingdb
+      POSTGRES_USER: fitsync
+      POSTGRES_PASSWORD: fitsync123
+    ports:
+      - "5433:5432"
+    volumes:
+      - trainingdb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitsync -d trainingdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  scheduledb:
+    image: postgres:15-alpine
+    container_name: fitsync-scheduledb
+    environment:
+      POSTGRES_DB: scheduledb
+      POSTGRES_USER: fitsync
+      POSTGRES_PASSWORD: fitsync123
+    ports:
+      - "5434:5432"
+    volumes:
+      - scheduledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitsync -d scheduledb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  progressdb:
+    image: postgres:15-alpine
+    container_name: fitsync-progressdb
+    environment:
+      POSTGRES_DB: progressdb
+      POSTGRES_USER: fitsync
+      POSTGRES_PASSWORD: fitsync123
+    ports:
+      - "5435:5432"
+    volumes:
+      - progressdb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitsync -d progressdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Caching and Message Queue
+  redis:
+    image: redis:7-alpine
+    container_name: fitsync-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # User Service
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: fitsync-user-service
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DB_HOST: userdb
+      DB_PORT: 5432
+      DB_NAME: userdb
+      DB_USER: fitsync
+      DB_PASSWORD: fitsync123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_REFRESH_SECRET: your-super-secret-refresh-key-change-in-production
+      JWT_EXPIRY: 15m
+      JWT_REFRESH_EXPIRY: 7d
+    depends_on:
+      userdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/user-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # Training Service
+  training-service:
+    build:
+      context: ./services/training-service
+      dockerfile: Dockerfile
+    container_name: fitsync-training-service
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      DB_HOST: trainingdb
+      DB_PORT: 5432
+      DB_NAME: trainingdb
+      DB_USER: fitsync
+      DB_PASSWORD: fitsync123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      USER_SERVICE_URL: http://user-service:3001
+    depends_on:
+      trainingdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/training-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # Schedule Service
+  schedule-service:
+    build:
+      context: ./services/schedule-service
+      dockerfile: Dockerfile
+    container_name: fitsync-schedule-service
+    ports:
+      - "8003:8003"
+    environment:
+      ENVIRONMENT: development
+      PORT: 8003
+      DB_HOST: scheduledb
+      DB_PORT: 5432
+      DB_NAME: scheduledb
+      DB_USER: fitsync
+      DB_PASSWORD: fitsync123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      USER_SERVICE_URL: http://user-service:3001
+    depends_on:
+      scheduledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/schedule-service:/app
+    restart: unless-stopped
+
+  # Progress Service
+  progress-service:
+    build:
+      context: ./services/progress-service
+      dockerfile: Dockerfile
+    container_name: fitsync-progress-service
+    ports:
+      - "8004:8004"
+    environment:
+      ENVIRONMENT: development
+      PORT: 8004
+      DB_HOST: progressdb
+      DB_PORT: 5432
+      DB_NAME: progressdb
+      DB_USER: fitsync
+      DB_PASSWORD: fitsync123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      USER_SERVICE_URL: http://user-service:3001
+    depends_on:
+      progressdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/progress-service:/app
+    restart: unless-stopped
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: fitsync-notification-service
+    ports:
+      - "3005:3005"
+    environment:
+      NODE_ENV: development
+      PORT: 3005
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      USER_SERVICE_URL: http://user-service:3001
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USER: noreply@fitsync.com
+      SMTP_PASSWORD: your-smtp-password
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/notification-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: fitsync-api-gateway
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      USER_SERVICE_URL: http://user-service:3001
+      TRAINING_SERVICE_URL: http://training-service:3002
+      SCHEDULE_SERVICE_URL: http://schedule-service:8003
+      PROGRESS_SERVICE_URL: http://progress-service:8004
+      NOTIFICATION_SERVICE_URL: http://notification-service:3005
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
+    depends_on:
+      - user-service
+      - training-service
+      - schedule-service
+      - progress-service
+      - notification-service
+      - redis
+    volumes:
+      - ./services/api-gateway:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fitsync-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:4000/api
+      REACT_APP_WS_URL: ws://localhost:4000
+    depends_on:
+      - api-gateway
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+volumes:
+  userdb_data:
+  trainingdb_data:
+  scheduledb_data:
+  progressdb_data:
+  redis_data:
+
+networks:
+  default:
+    name: fitsync-network
