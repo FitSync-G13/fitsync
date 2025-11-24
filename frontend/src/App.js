@@ -1,9 +1,17 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import LoginForm from './components/auth/LoginForm';
 import ClientDashboard from './components/dashboard/ClientDashboard';
 import TrainerDashboard from './components/dashboard/TrainerDashboard';
+import AdminDashboard from './components/dashboard/AdminDashboard';
+import GymOwnerDashboard from './components/dashboard/GymOwnerDashboard';
+import HomePage from './components/HomePage';
+import ExerciseLibrary from './components/ExerciseLibrary';
+import BookingManagement from './components/BookingManagement';
+import ProgressTracking from './components/ProgressTracking';
+import WorkoutPlans from './components/WorkoutPlans';
 import './index.css';
 
 // Protected Route Component
@@ -28,6 +36,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 // Main Layout Component
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   if (!user) {
     return children;
@@ -41,6 +50,13 @@ const Layout = ({ children }) => {
             FitSync
           </Link>
           <div className="navbar-user">
+            <button
+              onClick={toggleTheme}
+              className="btn-theme-toggle"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? '🌙' : '☀️'}
+            </button>
             <span style={{ marginRight: '1rem' }}>
               {user.first_name} {user.last_name} ({user.role})
             </span>
@@ -122,50 +138,23 @@ const DashboardRouter = () => {
   } else if (user.role === 'trainer') {
     return <TrainerDashboard />;
   } else if (user.role === 'admin') {
-    return <TrainerDashboard />; // Admin sees trainer dashboard for now
+    return <AdminDashboard />;
   } else if (user.role === 'gym_owner') {
-    return <TrainerDashboard />; // Gym owner sees trainer dashboard
+    return <GymOwnerDashboard />;
   }
 
   return <div>Invalid user role</div>;
 };
 
-// Simple pages for routes
-const ExercisesPage = () => (
-  <div className="card">
-    <h1 className="card-title">Exercise Library</h1>
-    <p>Exercise management coming soon. Use API directly for now.</p>
-  </div>
-);
-
-const WorkoutsPage = () => (
-  <div className="card">
-    <h1 className="card-title">Workout Plans</h1>
-    <p>Workout management coming soon. Use API directly for now.</p>
-  </div>
-);
-
-const BookingsPage = () => (
-  <div className="card">
-    <h1 className="card-title">Bookings</h1>
-    <p>Booking management coming soon. Use API directly for now.</p>
-  </div>
-);
-
-const ProgressPage = () => (
-  <div className="card">
-    <h1 className="card-title">My Progress</h1>
-    <p>Progress tracking coming soon. Use API directly for now.</p>
-  </div>
-);
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/login" element={<LoginForm />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/login" element={<LoginForm />} />
             <Route
               path="/dashboard"
               element={
@@ -178,7 +167,7 @@ function App() {
               path="/exercises"
               element={
                 <ProtectedRoute allowedRoles={['trainer', 'admin']}>
-                  <ExercisesPage />
+                  <ExerciseLibrary />
                 </ProtectedRoute>
               }
             />
@@ -186,7 +175,7 @@ function App() {
               path="/workouts"
               element={
                 <ProtectedRoute allowedRoles={['trainer', 'admin']}>
-                  <WorkoutsPage />
+                  <WorkoutPlans />
                 </ProtectedRoute>
               }
             />
@@ -194,7 +183,7 @@ function App() {
               path="/bookings"
               element={
                 <ProtectedRoute>
-                  <BookingsPage />
+                  <BookingManagement />
                 </ProtectedRoute>
               }
             />
@@ -202,15 +191,16 @@ function App() {
               path="/progress"
               element={
                 <ProtectedRoute allowedRoles={['client']}>
-                  <ProgressPage />
+                  <ProgressTracking />
                 </ProtectedRoute>
               }
             />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<HomePage />} />
           </Routes>
         </Layout>
       </Router>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 

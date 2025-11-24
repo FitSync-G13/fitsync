@@ -136,6 +136,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       USER_SERVICE_URL: http://user-service:3001
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
     depends_on:
       trainingdb:
         condition: service_healthy
@@ -164,6 +165,7 @@ services:
       DB_PASSWORD: fitsync123
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
       USER_SERVICE_URL: http://user-service:3001
     depends_on:
       scheduledb:
@@ -192,6 +194,7 @@ services:
       DB_PASSWORD: fitsync123
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
       USER_SERVICE_URL: http://user-service:3001
     depends_on:
       progressdb:
