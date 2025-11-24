@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose logs:*)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(done)",
+      "Bash(for dir in */)",
+      "Bash(do echo \"=== $dir ===\")",
+      "Bash(test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
