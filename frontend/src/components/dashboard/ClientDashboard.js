@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { notificationService } from '../../services';
+
+// Animated counter component
+const AnimatedCounter = ({ value, duration = 1 }) => {
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.round(latest));
+
+  useEffect(() => {
+    const controls = animate(count, value, { duration });
+    return controls.stop;
+  }, [value]);
+
+  return <motion.span>{rounded}</motion.span>;
+};
 
 const ClientDashboard = () => {
   const { user } = useAuth();
@@ -53,38 +67,98 @@ const ClientDashboard = () => {
   };
 
   if (loading) {
-    return <div className="loading">Loading dashboard...</div>;
+    return (
+      <motion.div
+        className="loading"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        Loading dashboard...
+      </motion.div>
+    );
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: [0.4, 0, 0.2, 1]
+      }
+    }
+  };
+
   return (
-    <div className="dashboard">
-      <div className="dashboard-header">
+    <motion.div
+      className="dashboard"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.div
+        className="dashboard-header"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+      >
         <h1 className="dashboard-title">Welcome back, {user.first_name}!</h1>
-        <p style={{ color: '#6b7280', marginTop: '0.5rem' }}>Here's your fitness overview</p>
-      </div>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Here's your fitness overview</p>
+      </motion.div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
+      <motion.div
+        className="stats-grid"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div className="stat-card stat-card-blue" variants={itemVariants} whileHover={{ scale: 1.05, y: -5 }}>
           <div className="stat-label">Total Workouts</div>
-          <div className="stat-value">{analytics?.total_workouts || 0}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Total Minutes</div>
-          <div className="stat-value">{analytics?.total_workout_minutes || 0}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Achievements</div>
-          <div className="stat-value">{analytics?.total_achievements || 0}</div>
-        </div>
-        {metrics && (
-          <div className="stat-card">
-            <div className="stat-label">Current Weight</div>
-            <div className="stat-value">{metrics.weight_kg} kg</div>
+          <div className="stat-value">
+            <AnimatedCounter value={analytics?.total_workouts || 0} />
           </div>
+        </motion.div>
+        <motion.div className="stat-card stat-card-green" variants={itemVariants} whileHover={{ scale: 1.05, y: -5 }}>
+          <div className="stat-label">Total Minutes</div>
+          <div className="stat-value">
+            <AnimatedCounter value={analytics?.total_workout_minutes || 0} />
+          </div>
+        </motion.div>
+        <motion.div className="stat-card stat-card-purple" variants={itemVariants} whileHover={{ scale: 1.05, y: -5 }}>
+          <div className="stat-label">Achievements</div>
+          <div className="stat-value">
+            <AnimatedCounter value={analytics?.total_achievements || 0} />
+          </div>
+        </motion.div>
+        {metrics && (
+          <motion.div className="stat-card stat-card-orange" variants={itemVariants} whileHover={{ scale: 1.05, y: -5 }}>
+            <div className="stat-label">Current Weight</div>
+            <div className="stat-value">
+              <AnimatedCounter value={metrics.weight_kg} /> kg
+            </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
-      <div className="card">
+      <motion.div
+        className="card"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6, duration: 0.5 }}
+        whileHover={{ y: -4 }}
+      >
         <div className="card-header">
           <h2 className="card-title">Upcoming Sessions</h2>
         </div>
@@ -125,9 +199,15 @@ const ClientDashboard = () => {
             </button>
           </div>
         )}
-      </div>
+      </motion.div>
 
-      <div className="card">
+      <motion.div
+        className="card"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8, duration: 0.5 }}
+        whileHover={{ y: -4 }}
+      >
         <div className="card-header">
           <h2 className="card-title">Active Programs</h2>
         </div>
@@ -136,7 +216,7 @@ const ClientDashboard = () => {
             {programs.map((program) => (
               <div key={program.id} style={{
                 padding: '1rem',
-                border: '1px solid #e5e7eb',
+                border: '1px solid var(--border-color)',
                 borderRadius: '0.5rem'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -145,7 +225,7 @@ const ClientDashboard = () => {
                     {program.status}
                   </span>
                 </div>
-                <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                   Start: {new Date(program.start_date).toLocaleDateString()}
                   {program.end_date && ` - End: ${new Date(program.end_date).toLocaleDateString()}`}
                 </div>
@@ -157,8 +237,8 @@ const ClientDashboard = () => {
             <p>No active programs</p>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
