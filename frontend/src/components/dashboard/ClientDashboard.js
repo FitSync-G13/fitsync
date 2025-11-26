@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { notificationService } from '../../services';
 
 const ClientDashboard = () => {
   const { user } = useAuth();
@@ -8,11 +9,22 @@ const ClientDashboard = () => {
   const [programs, setPrograms] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadDashboardData();
+    loadNotifications();
   }, [user]);
+
+  const loadNotifications = async () => {
+    try {
+      const unreadCount = await notificationService.getUnreadCount(user.id);
+      setUnreadNotifications(unreadCount.data.count);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
