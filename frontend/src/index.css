@@ -1238,14 +1238,15 @@ code {
 }
 
 .exercise-card {
-    background: var(--card-bg);
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
     padding: 1.75rem;
     border-radius: 1.25rem;
-    box-shadow: var(--shadow-md);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 2px solid transparent;
+    border: 1px solid hsl(var(--border));
+    transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 20px 45px -25px rgba(15, 23, 42, 0.35);
 }
 
 .exercise-card::before {
@@ -1262,9 +1263,9 @@ code {
 }
 
 .exercise-card:hover {
-    border-color: transparent;
-    box-shadow: var(--shadow-xl);
-    transform: translateY(-6px) scale(1.02);
+    border-color: hsl(var(--ring));
+    box-shadow: 0 25px 60px -25px rgba(15, 23, 42, 0.45);
+    transform: translateY(-6px);
 }
 
 .exercise-card:hover::before {
@@ -1281,11 +1282,11 @@ code {
 .exercise-name {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #1f2937;
+    color: hsl(var(--foreground));
 }
 
 .exercise-description {
-    color: #6b7280;
+    color: hsl(var(--muted-foreground));
     margin-bottom: 1rem;
     line-height: 1.5;
 }
@@ -1298,8 +1299,8 @@ code {
 }
 
 .tag {
-    background: #dbeafe;
-    color: #1e40af;
+    background: hsla(var(--ring) / 0.12);
+    color: hsl(var(--ring));
     padding: 0.25rem 0.75rem;
     border-radius: 9999px;
     font-size: 0.75rem;
@@ -1308,7 +1309,7 @@ code {
 
 .exercise-equipment {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: hsl(var(--muted-foreground));
     margin-bottom: 1rem;
 }
 
@@ -1582,14 +1583,15 @@ code {
 }
 
 .workout-card {
-    background: var(--card-bg);
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
     padding: 1.75rem;
     border-radius: 1.25rem;
-    box-shadow: var(--shadow-md);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 2px solid transparent;
+    border: 1px solid hsl(var(--border));
+    transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 20px 45px -25px rgba(15, 23, 42, 0.35);
 }
 
 .workout-card::before {
@@ -1606,9 +1608,9 @@ code {
 }
 
 .workout-card:hover {
-    border-color: transparent;
-    box-shadow: var(--shadow-xl);
-    transform: translateY(-6px) scale(1.02);
+    border-color: hsl(var(--ring));
+    box-shadow: 0 25px 60px -25px rgba(15, 23, 42, 0.45);
+    transform: translateY(-6px);
 }
 
 .workout-card:hover::before {
@@ -1625,12 +1627,12 @@ code {
 .workout-name {
     font-size: 1.25rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: hsl(var(--foreground));
     flex: 1;
 }
 
 .workout-description {
-    color: var(--text-secondary);
+    color: hsl(var(--muted-foreground));
     margin-bottom: 1rem;
     line-height: 1.5;
 }
