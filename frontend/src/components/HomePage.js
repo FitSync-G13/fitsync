@@ -13,11 +13,17 @@ import {
     Zap,
     Target,
     Award,
+    Sun,
+    Moon,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Card, CardContent } from "./ui/Card";
+import { useTheme } from "../contexts/ThemeContext";
+import heroImage from "../assets/images/hero/hero.png";
 
 const HomePage = () => {
+    const { theme, toggleTheme } = useTheme();
+
     return (
         <div className="min-h-screen bg-background">
             {/* Navigation */}
@@ -43,12 +49,18 @@ const HomePage = () => {
                             >
                                 Services
                             </a>
-                            <a
-                                href="#results"
-                                className="text-muted-foreground hover:text-foreground transition-colors"
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={toggleTheme}
+                                className="rounded-full"
                             >
-                                Results
-                            </a>
+                                {theme === "dark" ? (
+                                    <Sun className="w-5 h-5" />
+                                ) : (
+                                    <Moon className="w-5 h-5" />
+                                )}
+                            </Button>
                             <Link to="/login">
                                 <Button variant="outline" size="sm">
                                     Login
@@ -105,7 +117,7 @@ const HomePage = () => {
                                         size="lg"
                                         className="gradient-orange text-lg px-8"
                                     >
-                                        Start Free Trial
+                                        Get Started
                                         <ArrowRight className="w-5 h-5 ml-2" />
                                     </Button>
                                 </Link>
@@ -159,22 +171,19 @@ const HomePage = () => {
                             </div>
                         </motion.div>
 
-                        {/* Right Content - Image Placeholder */}
+                        {/* Right Content - Hero Image */}
                         <motion.div
                             initial={{ opacity: 0, x: 50 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.6, delay: 0.2 }}
                             className="relative"
                         >
-                            <div className="relative h-[600px] rounded-2xl bg-gradient-to-br from-fitness-orange/20 to-fitness-purple/20 overflow-hidden">
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <div className="text-center space-y-4">
-                                        <Dumbbell className="w-32 h-32 mx-auto text-fitness-orange/40" />
-                                        <p className="text-muted-foreground">
-                                            Hero Image Placeholder
-                                        </p>
-                                    </div>
-                                </div>
+                            <div className="relative h-[600px] rounded-2xl overflow-hidden">
+                                <img
+                                    src={heroImage}
+                                    alt="FitSync - Transform Your Fitness Journey"
+                                    className="w-full h-full object-cover"
+                                />
 
                                 {/* Floating Cards */}
                                 <motion.div
@@ -229,36 +238,6 @@ const HomePage = () => {
                                 </motion.div>
                             </div>
                         </motion.div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Trust Section */}
-            <section className="py-16 border-y bg-muted/30">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="text-center mb-12">
-                        <h3 className="text-xl font-semibold mb-8">
-                            Trust By{" "}
-                            <span className="bg-gradient-to-r from-fitness-orange to-fitness-orange-light bg-clip-text text-transparent">
-                                Company
-                            </span>
-                        </h3>
-                        <div className="flex flex-wrap justify-center items-center gap-12 opacity-60">
-                            {[
-                                "Company 1",
-                                "Company 2",
-                                "Company 3",
-                                "Company 4",
-                                "Company 5",
-                            ].map((company, i) => (
-                                <div
-                                    key={i}
-                                    className="text-2xl font-bold text-muted-foreground"
-                                >
-                                    {company}
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 </div>
             </section>
@@ -424,48 +403,6 @@ const HomePage = () => {
                                             ))}
                                         </ul>
                                     </CardContent>
-                                </Card>
-                            </motion.div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Results Section */}
-            <section id="results" className="py-24 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-7xl mx-auto">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        className="text-center mb-16"
-                    >
-                        <h2 className="text-4xl md:text-5xl font-bold mb-4">
-                            Results
-                        </h2>
-                        <p className="text-lg text-muted-foreground">
-                            Real transformations from real people
-                        </p>
-                    </motion.div>
-
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {[1, 2, 3].map((item) => (
-                            <motion.div
-                                key={item}
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                whileInView={{ opacity: 1, scale: 1 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: item * 0.1 }}
-                            >
-                                <Card className="overflow-hidden group">
-                                    <div className="aspect-[4/5] bg-gradient-to-br from-fitness-orange/20 to-fitness-purple/20 relative">
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <Award className="w-20 h-20 text-fitness-orange/40" />
-                                        </div>
-                                        <div className="absolute top-4 left-4 px-3 py-1 bg-background/90 backdrop-blur-sm rounded-full text-sm font-medium">
-                                            Before & After
-                                        </div>
-                                    </div>
                                 </Card>
                             </motion.div>
                         ))}
