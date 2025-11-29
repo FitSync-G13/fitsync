@@ -23,6 +23,7 @@ import {
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import LoginForm from "./components/auth/LoginForm";
+import RegisterForm from "./components/auth/RegisterForm";
 import ClientDashboard from "./components/dashboard/ClientDashboard";
 import TrainerDashboard from "./components/dashboard/TrainerDashboard";
 import AdminDashboard from "./components/dashboard/AdminDashboard";
@@ -303,6 +304,10 @@ function App() {
                     <Layout>
                         <Routes>
                             <Route path="/login" element={<LoginForm />} />
+                            <Route
+                                path="/register"
+                                element={<RegisterForm />}
+                            />
                             <Route
                                 path="/dashboard"
                                 element={
