@@ -1,0 +1,156 @@
+version: 2.1
+
+commands:
+  build-scan-push:
+    description: "Build, Scan, and Push Docker Image"
+    parameters:
+      service_name:
+        type: string
+      folder_path:
+        type: string
+    steps:
+      - checkout
+      # Docker Build
+      - run:
+          name: Build Docker Image
+          command: docker build -t ${{ parameters.service_name }}:${CIRCLE_SHA1} ${{ parameters.folder_path }}
+      
+      # Security Scan (Trivy)
+      - run:
+          name: Install Trivy
+          command: |
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+      - run:
+          name: Scan Image
+          command: |
+            # Fails if HIGH/CRITICAL vulnerabilities found
+            trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed ${{ parameters.service_name }}:${CIRCLE_SHA1}
+
+      # # Push to AWS ECR
+      # - run:
+      #     name: Push to ECR
+      #     command: |
+      #       aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      #       docker tag ${{ parameters.service_name }}:${CIRCLE_SHA1} $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ parameters.service_name }}:${CIRCLE_SHA1}
+      #       docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ parameters.service_name }}:${CIRCLE_SHA1}
+
+executors:
+  docker-builder:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
+
+jobs:
+  build-gateway:
+    executor: docker-builder
+    steps:
+      - build-scan-push:
+          service_name: "fitsync-api-gateway"
+          folder_path: "./services/api-gateway"
+  build-notification:
+    executor: docker-builder
+    steps:
+      - build-scan-push:
+          service_name: "fitsync-notification-service"
+          folder_path: "./services/notification-service"
+  build-progress:
+    executor: docker-builder
+    steps:
+      - build-scan-push:
+          service_name: "fitsync-progress-service"
+          folder_path: "./services/progress-service"
+  build-schedule:
+    executor: docker-builder
+    steps:
+      - build-scan-push:
+          service_name: "fitsync-schedule-service"
+          folder_path: "./services/schedule-service"
+  build-training:
+    executor: docker-builder
+    steps:
+      - build-scan-push:
+          service_name: "fitsync-training-service"
+          folder_path: "./services/training-service"
+  build-user:
+    executor: docker-builder
+    steps:
+      - build-scan-push:
+          service_name: "fitsync-user-service"
+          folder_path: "./services/user-service"
+  build-frontend:
+    executor: docker-builder
+    steps:
+      - build-scan-push:
+          service_name: "fitsync-frontend"
+          folder_path: "./frontend"
+
+parameters:
+  run-api-gateway:
+    type: boolean
+    default: false
+  run-notification-service:
+    type: boolean
+    default: false
+  run-progress-service:
+    type: boolean
+    default: false
+  run-schedule-service:
+    type: boolean
+    default: false
+  run-training-service:
+    type: boolean
+    default: false
+  run-user-service:
+    type: boolean
+    default: false
+  run-frontend:
+    type: boolean
+    default: false
+  trigger-all:
+    type: boolean
+    default: false
+
+workflows:
+  build-microservices:
+    jobs:
+      - build-gateway:
+          when: 
+            or:
+              - << pipeline.parameters.run-api-gateway >>
+              - << pipeline.parameters.trigger-all >>
+
+      - build-notification:
+          when: 
+            or:
+              - << pipeline.parameters.run-notification-service >>
+              - << pipeline.parameters.trigger-all >>
+
+      - build-progress:
+          when: 
+            or:
+              - << pipeline.parameters.run-progress-service >>
+              - << pipeline.parameters.trigger-all >>
+
+      - build-schedule:
+          when: 
+            or:
+              - << pipeline.parameters.run-schedule-service >>
+              - << pipeline.parameters.trigger-all >>
+
+      - build-training:
+          when: 
+            or:
+              - << pipeline.parameters.run-training-service >>
+              - << pipeline.parameters.trigger-all >>
+
+      - build-user:
+          when: 
+            or:
+              - << pipeline.parameters.run-user-service >>
+              - << pipeline.parameters.trigger-all >>
+              
+      - build-frontend:
+          when: 
+            or:
+              - << pipeline.parameters.run-frontend >>
+              - << pipeline.parameters.trigger-all >>
