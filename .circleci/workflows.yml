@@ -106,21 +106,51 @@ parameters:
   run-frontend:
     type: boolean
     default: false
+  trigger-all:
+    type: boolean
+    default: false
 
 workflows:
   build-microservices:
     jobs:
       - build-gateway:
-          when: << pipeline.parameters.run-api-gateway >>
+          when: 
+            or:
+              - << pipeline.parameters.run-api-gateway >>
+              - << pipeline.parameters.trigger-all >>
+
       - build-notification:
-          when: << pipeline.parameters.run-notification-service >>
+          when: 
+            or:
+              - << pipeline.parameters.run-notification-service >>
+              - << pipeline.parameters.trigger-all >>
+
       - build-progress:
-          when: << pipeline.parameters.run-progress-service >>
+          when: 
+            or:
+              - << pipeline.parameters.run-progress-service >>
+              - << pipeline.parameters.trigger-all >>
+
       - build-schedule:
-          when: << pipeline.parameters.run-schedule-service >>
+          when: 
+            or:
+              - << pipeline.parameters.run-schedule-service >>
+              - << pipeline.parameters.trigger-all >>
+
       - build-training:
-          when: << pipeline.parameters.run-training-service >>
+          when: 
+            or:
+              - << pipeline.parameters.run-training-service >>
+              - << pipeline.parameters.trigger-all >>
+
       - build-user:
-          when: << pipeline.parameters.run-user-service >>
+          when: 
+            or:
+              - << pipeline.parameters.run-user-service >>
+              - << pipeline.parameters.trigger-all >>
+              
       - build-frontend:
-          when: << pipeline.parameters.run-frontend >>
+          when: 
+            or:
+              - << pipeline.parameters.run-frontend >>
+              - << pipeline.parameters.trigger-all >>

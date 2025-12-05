@@ -3,6 +3,11 @@ setup: true
 orbs:
   path-filtering: circleci/path-filtering@1.0.0
 
+parameters:
+  trigger-all:
+    type: boolean
+    default: false
+
 workflows:
   always-run:
     jobs:
@@ -18,3 +23,7 @@ workflows:
             frontend/.* run-frontend true
           base-revision: main
           config-path: .circleci/workflows.yml
+          pipeline-parameters: >-
+            {
+              "trigger-all": << pipeline.parameters.trigger-all >>
+            }
