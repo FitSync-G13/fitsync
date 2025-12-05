@@ -344,4 +344,4 @@ For issues and questions:
 
 **Built with ❤️ using modern microservices architecture**
 
-🚀 Ready to revolutionize fitness management!
+Ready to revolutionize fitness management!
