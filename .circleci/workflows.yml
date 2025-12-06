@@ -160,6 +160,7 @@ commands:
           path: /tmp/image-analysis
           destination: image-analysis
       
+      # --- COMMENTED OUT: PUSH TO AWS ECR ---
       # - run:
       #     name: Authenticate with ECR
       #     command: |
@@ -206,51 +207,93 @@ jobs:
   build-gateway:
     executor: docker-builder
     steps:
-      - build-scan-push:
-          service_name: "fitsync-api-gateway"
-          folder_path: "./services/api-gateway"
-  
+      - when:
+          condition:
+            or:
+              - << pipeline.parameters.run-api-gateway >>
+              - << pipeline.parameters.trigger-all >>
+          steps:
+            - build-scan-push:
+                service_name: "fitsync-api-gateway"
+                folder_path: "./services/api-gateway"
+
   build-notification:
     executor: docker-builder
     steps:
-      - build-scan-push:
-          service_name: "fitsync-notification-service"
-          folder_path: "./services/notification-service"
-  
+      - when:
+          condition:
+            or:
+              - << pipeline.parameters.run-notification-service >>
+              - << pipeline.parameters.trigger-all >>
+          steps:
+            - build-scan-push:
+                service_name: "fitsync-notification-service"
+                folder_path: "./services/notification-service"
+
   build-progress:
     executor: docker-builder
     steps:
-      - build-scan-push:
-          service_name: "fitsync-progress-service"
-          folder_path: "./services/progress-service"
-  
+      - when:
+          condition:
+            or:
+              - << pipeline.parameters.run-progress-service >>
+              - << pipeline.parameters.trigger-all >>
+          steps:
+            - build-scan-push:
+                service_name: "fitsync-progress-service"
+                folder_path: "./services/progress-service"
+
   build-schedule:
     executor: docker-builder
     steps:
-      - build-scan-push:
-          service_name: "fitsync-schedule-service"
-          folder_path: "./services/schedule-service"
-  
+      - when:
+          condition:
+            or:
+              - << pipeline.parameters.run-schedule-service >>
+              - << pipeline.parameters.trigger-all >>
+          steps:
+            - build-scan-push:
+                service_name: "fitsync-schedule-service"
+                folder_path: "./services/schedule-service"
+
   build-training:
     executor: docker-builder
     steps:
-      - build-scan-push:
-          service_name: "fitsync-training-service"
-          folder_path: "./services/training-service"
-  
+      - when:
+          condition:
+            or:
+              - << pipeline.parameters.run-training-service >>
+              - << pipeline.parameters.trigger-all >>
+          steps:
+            - build-scan-push:
+                service_name: "fitsync-training-service"
+                folder_path: "./services/training-service"
+
   build-user:
     executor: docker-builder
     steps:
-      - build-scan-push:
-          service_name: "fitsync-user-service"
-          folder_path: "./services/user-service"
-  
+      - when:
+          condition:
+            or:
+              - << pipeline.parameters.run-user-service >>
+              - << pipeline.parameters.trigger-all >>
+          steps:
+            - build-scan-push:
+                service_name: "fitsync-user-service"
+                folder_path: "./services/user-service"
+
   build-frontend:
     executor: docker-builder
     steps:
-      - build-scan-push:
-          service_name: "fitsync-frontend"
-          folder_path: "./frontend"
+      - when:
+          condition:
+            or:
+              - << pipeline.parameters.run-frontend >>
+              - << pipeline.parameters.trigger-all >>
+          steps:
+            - build-scan-push:
+                service_name: "fitsync-frontend"
+                folder_path: "./frontend"
 
 parameters:
   run-api-gateway:
@@ -281,65 +324,10 @@ parameters:
 workflows:
   build_microservices:
     jobs:
-      - build-gateway:
-          filters:
-            branches:
-              only: /.*/
-          when:
-            or:
-              - equal: [ true, << pipeline.parameters.run-api-gateway >> ]
-              - equal: [ true, << pipeline.parameters.trigger-all >> ]
-
-      - build-notification:
-          filters:
-            branches:
-              only: /.*/
-          when:
-            or:
-              - equal: [ true, << pipeline.parameters.run-notification-service >> ]
-              - equal: [ true, << pipeline.parameters.trigger-all >> ]
-
-      - build-progress:
-          filters:
-            branches:
-              only: /.*/
-          when:
-            or:
-              - equal: [ true, << pipeline.parameters.run-progress-service >> ]
-              - equal: [ true, << pipeline.parameters.trigger-all >> ]
-
-      - build-schedule:
-          filters:
-            branches:
-              only: /.*/
-          when:
-            or:
-              - equal: [ true, << pipeline.parameters.run-schedule-service >> ]
-              - equal: [ true, << pipeline.parameters.trigger-all >> ]
-
-      - build-training:
-          filters:
-            branches:
-              only: /.*/
-          when:
-            or:
-              - equal: [ true, << pipeline.parameters.run-training-service >> ]
-              - equal: [ true, << pipeline.parameters.trigger-all >> ]
-
-      - build-user:
-          filters:
-            branches:
-              only: /.*/
-          when:
-            or:
-              - equal: [ true, << pipeline.parameters.run-user-service >> ]
-              - equal: [ true, << pipeline.parameters.trigger-all >> ]
-              
-      - build-frontend:
-          filters:
-            branches:
-              only: /.*/
-          when:
-            or:
-              - equal: [ true, << pipeline.parameters.run-frontend >> ]
-              - equal: [ true, << pipeline.parameters.trigger-all >> ]
+      - build-gateway
+      - build-notification
+      - build-progress
+      - build-schedule
+      - build-training
+      - build-user
+      - build-frontend
