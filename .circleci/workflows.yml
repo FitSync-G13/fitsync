@@ -10,6 +10,13 @@ commands:
         type: string
     steps:
       - checkout
+      # InstLL python 3.10
+      - run:
+          name: Install Python 3.10
+          command: |
+            sudo apt update
+            sudo apt install -y python3.10 python3.10-distutils python3.10-venv
+            sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
       # Docker Build
       - run:
           name: Build Docker Image
