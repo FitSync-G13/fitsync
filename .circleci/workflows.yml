@@ -10,35 +10,198 @@ commands:
         type: string
     steps:
       - checkout
-      # Docker Build
+      
+      # Restore Docker layer cache
+      - restore_cache:
+          keys:
+            - docker-{{ .Branch }}-{{ checksum "<< parameters.folder_path >>/Dockerfile" }}
+            - docker-{{ .Branch }}
+            - docker-main
+      
+      # Docker Build with BuildKit
       - run:
           name: Build Docker Image
-          command: docker build -t ${{ parameters.service_name }}:${CIRCLE_SHA1} ${{ parameters.folder_path }}
+          command: |
+            export DOCKER_BUILDKIT=1
+            docker build \
+              --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+              --build-arg VCS_REF=${CIRCLE_SHA1} \
+              --build-arg VERSION=${CIRCLE_TAG:-${CIRCLE_SHA1:0:7}} \
+              -t << parameters.service_name >>:${CIRCLE_SHA1} \
+              -t << parameters.service_name >>:latest \
+              << parameters.folder_path >>
+      
+      # Save Docker layer cache
+      - save_cache:
+          key: docker-{{ .Branch }}-{{ checksum "<< parameters.folder_path >>/Dockerfile" }}
+          paths:
+            - /var/lib/docker
+      
+      # Generate build metadata
+      - run:
+          name: Generate Build Info
+          command: |
+            mkdir -p /tmp/build-metadata
+            cat > /tmp/build-metadata/<< parameters.service_name >>-info.json <<EOF
+            {
+              "service": "<< parameters.service_name >>",
+              "commit": "${CIRCLE_SHA1}",
+              "branch": "${CIRCLE_BRANCH}",
+              "build_number": "${CIRCLE_BUILD_NUM}",
+              "build_url": "${CIRCLE_BUILD_URL}",
+              "build_time": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+              "repository": "${CIRCLE_PROJECT_REPONAME}"
+            }
+            EOF
+      
+      # Store build metadata
+      - store_artifacts:
+          path: /tmp/build-metadata
+          destination: build-info
       
       # Security Scan (Trivy)
       - run:
           name: Install Trivy
           command: |
             curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+      
       - run:
-          name: Scan Image
+          name: Scan Image for Vulnerabilities
           command: |
-            # Fails if HIGH/CRITICAL vulnerabilities found
-            trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed ${{ parameters.service_name }}:${CIRCLE_SHA1}
-
-      # # Push to AWS ECR
+            mkdir -p /tmp/trivy-reports
+            
+            # Generate JSON report
+            trivy image \
+              --format json \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-vulnerabilities.json \
+              << parameters.service_name >>:${CIRCLE_SHA1}
+            
+            # Generate human-readable report
+            trivy image \
+              --format table \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-vulnerabilities.txt \
+              << parameters.service_name >>:${CIRCLE_SHA1}
+            
+            # Generate SARIF format for GitHub integration
+            trivy image \
+              --format sarif \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-vulnerabilities.sarif \
+              << parameters.service_name >>:${CIRCLE_SHA1}
+      
+      - run:
+          name: Generate SBOM
+          command: |
+            # Generate CycloneDX SBOM
+            trivy image \
+              --format cyclonedx \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-sbom.json \
+              << parameters.service_name >>:${CIRCLE_SHA1}
+            
+            # Generate SPDX SBOM
+            trivy image \
+              --format spdx-json \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-sbom-spdx.json \
+              << parameters.service_name >>:${CIRCLE_SHA1}
+      
+      - run:
+          name: Scan for Misconfigurations
+          command: |
+            trivy config \
+              --format json \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-misconfig.json \
+              << parameters.folder_path >>
+      
+      - run:
+          name: Scan for Secrets
+          command: |
+            trivy fs \
+              --scanners secret \
+              --format json \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-secrets.json \
+              << parameters.folder_path >>
+      
+      # Store all security reports
+      - store_artifacts:
+          path: /tmp/trivy-reports
+          destination: security-reports
+      
+      # Fail build if HIGH/CRITICAL vulnerabilities found
+      - run:
+          name: Check Security Thresholds
+          command: |
+            echo "Checking for HIGH and CRITICAL vulnerabilities..."
+            trivy image \
+              --exit-code 1 \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              << parameters.service_name >>:${CIRCLE_SHA1}
+      
+      # Save Docker image (Useful now since we aren't pushing!)
+      - run:
+          name: Export Docker Image
+          command: |
+            mkdir -p /tmp/docker-images
+            docker save << parameters.service_name >>:${CIRCLE_SHA1} | gzip > /tmp/docker-images/<< parameters.service_name >>.tar.gz
+          when: on_success
+      
+      - store_artifacts:
+          path: /tmp/docker-images
+          destination: docker-images
+      
+      # Image size analysis
+      - run:
+          name: Analyze Image Size
+          command: |
+            mkdir -p /tmp/image-analysis
+            docker images << parameters.service_name >>:${CIRCLE_SHA1} > /tmp/image-analysis/size.txt
+            docker history << parameters.service_name >>:${CIRCLE_SHA1} >> /tmp/image-analysis/layers.txt
+      
+      - store_artifacts:
+          path: /tmp/image-analysis
+          destination: image-analysis
+      
+      # --- COMMENTED OUT: PUSH TO AWS ECR ---
       # - run:
-      #     name: Push to ECR
+      #     name: Authenticate with ECR
       #     command: |
-      #       aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-      #       docker tag ${{ parameters.service_name }}:${CIRCLE_SHA1} $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ parameters.service_name }}:${CIRCLE_SHA1}
-      #       docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${{ parameters.service_name }}:${CIRCLE_SHA1}
+      #       aws ecr get-login-password --region $AWS_REGION | \
+      #         docker login --username AWS --password-stdin \
+      #         $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      
+      # - run:
+      #     name: Tag and Push Images
+      #     command: |
+      #       # Push with commit SHA
+      #       docker tag << parameters.service_name >>:${CIRCLE_SHA1} \
+      #         $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:${CIRCLE_SHA1}
+      #       docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:${CIRCLE_SHA1}
+            
+      #       # Push with 'latest' tag
+      #       if [ "${CIRCLE_BRANCH}" == "main" ]; then
+      #         docker tag << parameters.service_name >>:${CIRCLE_SHA1} \
+      #           $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:latest
+      #         docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:latest
+      #       fi
+      
+      # - run:
+      #     name: Store Image Digest
+      #     command: |
+      #       mkdir -p /tmp/deployment-info
+      #       docker inspect --format='{{index .RepoDigests 0}}' \
+      #         $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:${CIRCLE_SHA1} \
+      #         > /tmp/deployment-info/<< parameters.service_name >>-digest.txt
+      
+      # - store_artifacts:
+      #     path: /tmp/deployment-info
+      #     destination: deployment-info
 
 executors:
   docker-builder:
     machine:
       image: ubuntu-2004:2024.01.2
     resource_class: medium
+    environment:
+      DOCKER_BUILDKIT: 1
 
 jobs:
   build-gateway:
@@ -47,36 +210,42 @@ jobs:
       - build-scan-push:
           service_name: "fitsync-api-gateway"
           folder_path: "./services/api-gateway"
+  
   build-notification:
     executor: docker-builder
     steps:
       - build-scan-push:
           service_name: "fitsync-notification-service"
           folder_path: "./services/notification-service"
+  
   build-progress:
     executor: docker-builder
     steps:
       - build-scan-push:
           service_name: "fitsync-progress-service"
           folder_path: "./services/progress-service"
+  
   build-schedule:
     executor: docker-builder
     steps:
       - build-scan-push:
           service_name: "fitsync-schedule-service"
           folder_path: "./services/schedule-service"
+  
   build-training:
     executor: docker-builder
     steps:
       - build-scan-push:
           service_name: "fitsync-training-service"
           folder_path: "./services/training-service"
+  
   build-user:
     executor: docker-builder
     steps:
       - build-scan-push:
           service_name: "fitsync-user-service"
           folder_path: "./services/user-service"
+  
   build-frontend:
     executor: docker-builder
     steps:
@@ -114,6 +283,7 @@ workflows:
   build-microservices:
     jobs:
       - build-gateway:
+          # context: aws-production  <-- REMOVED to avoid error
           when: 
             or:
               - << pipeline.parameters.run-api-gateway >>
