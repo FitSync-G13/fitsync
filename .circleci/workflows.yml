@@ -11,12 +11,14 @@ commands:
     steps:
       - checkout
       
+      # Restore Docker layer cache
       - restore_cache:
           keys:
             - docker-{{ .Branch }}-{{ checksum "<< parameters.folder_path >>/Dockerfile" }}
             - docker-{{ .Branch }}
             - docker-main
       
+      # Docker Build with BuildKit
       - run:
           name: Build Docker Image
           command: |
@@ -29,42 +31,45 @@ commands:
               -t << parameters.service_name >>:latest \
               << parameters.folder_path >>
       
+      # Save Docker layer cache
       - save_cache:
           key: docker-{{ .Branch }}-{{ checksum "<< parameters.folder_path >>/Dockerfile" }}
           paths:
             - /var/lib/docker
       
-      # --- FIX: Replaced 'cat <<EOF' with 'echo' to avoid syntax errors ---
+      # Generate build metadata
       - run:
           name: Generate Build Info
           command: |
             mkdir -p /tmp/build-metadata
-            FILE="/tmp/build-metadata/<< parameters.service_name >>-info.json"
-            
-            echo "{" > "$FILE"
-            echo "  \"service\": \"<< parameters.service_name >>\"," >> "$FILE"
-            echo "  \"commit\": \"${CIRCLE_SHA1}\"," >> "$FILE"
-            echo "  \"branch\": \"${CIRCLE_BRANCH}\"," >> "$FILE"
-            echo "  \"build_number\": \"${CIRCLE_BUILD_NUM}\"," >> "$FILE"
-            echo "  \"build_url\": \"${CIRCLE_BUILD_URL}\"," >> "$FILE"
-            echo "  \"build_time\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"," >> "$FILE"
-            echo "  \"repository\": \"${CIRCLE_PROJECT_REPONAME}\"" >> "$FILE"
-            echo "}" >> "$FILE"
+            cat > /tmp/build-metadata/<< parameters.service_name >>-info.json <<EOF
+            {
+              "service": "<< parameters.service_name >>",
+              "commit": "${CIRCLE_SHA1}",
+              "branch": "${CIRCLE_BRANCH}",
+              "build_number": "${CIRCLE_BUILD_NUM}",
+              "build_url": "${CIRCLE_BUILD_URL}",
+              "build_time": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+              "repository": "${CIRCLE_PROJECT_REPONAME}"
+            }
+            EOF
       
+      # Store build metadata
       - store_artifacts:
           path: /tmp/build-metadata
           destination: build-info
       
+      # Security Scan (Trivy)
       - run:
           name: Install Trivy
           command: |
-            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
       
       - run:
           name: Scan Image for Vulnerabilities
           command: |
             mkdir -p /tmp/trivy-reports
-
+            
             # Check if .trivyignore exists in the service folder
             TRIVYIGNORE_FLAG=""
             if [ -f "<< parameters.folder_path >>/.trivyignore" ]; then
@@ -96,11 +101,13 @@ commands:
       - run:
           name: Generate SBOM
           command: |
+            # Generate CycloneDX SBOM
             trivy image \
               --format cyclonedx \
               --output /tmp/trivy-reports/<< parameters.service_name >>-sbom.json \
               << parameters.service_name >>:${CIRCLE_SHA1}
             
+            # Generate SPDX SBOM
             trivy image \
               --format spdx-json \
               --output /tmp/trivy-reports/<< parameters.service_name >>-sbom-spdx.json \
@@ -123,42 +130,94 @@ commands:
               --output /tmp/trivy-reports/<< parameters.service_name >>-secrets.json \
               << parameters.folder_path >>
       
+      # Store all security reports
       - store_artifacts:
           path: /tmp/trivy-reports
           destination: security-reports
       
+      # Fail build if HIGH/CRITICAL vulnerabilities found
       - run:
           name: Check Security Thresholds
           command: |
             echo "Checking for HIGH and CRITICAL vulnerabilities..."
+            
+            # Check if .trivyignore exists
+            TRIVYIGNORE_FLAG=""
+            if [ -f "<< parameters.folder_path >>/.trivyignore" ]; then
+              TRIVYIGNORE_FLAG="--ignorefile << parameters.folder_path >>/.trivyignore"
+            fi
+            
             trivy image \
+              $TRIVYIGNORE_FLAG \
               --exit-code 1 \
               --severity HIGH,CRITICAL \
               --ignore-unfixed \
               << parameters.service_name >>:${CIRCLE_SHA1}
       
-      - run:
-          name: Export Docker Image
-          command: |
-            mkdir -p /tmp/docker-images
-            docker save << parameters.service_name >>:${CIRCLE_SHA1} | gzip > /tmp/docker-images/<< parameters.service_name >>.tar.gz
-          when: on_success
+      # Save Docker image
+      # --- DOCKER IMAGE EXPORT DISABLED TO SAVE ARTIFACT STORAGE ---
+      # Docker images are 100-500MB each = 700-3500MB per build for 7 services
+      # This quickly fills CircleCI's 2GB free tier limit
+      # Images are already in ECR, no need to store in artifacts
+      # Uncomment only when you need to download and test images locally
       
-      - store_artifacts:
-          path: /tmp/docker-images
-          destination: docker-images
+      # - run:
+      #     name: Export Docker Image
+      #     command: |
+      #       mkdir -p /tmp/docker-images
+      #       docker save << parameters.service_name >>:${CIRCLE_SHA1} | gzip > /tmp/docker-images/<< parameters.service_name >>.tar.gz
+      #     when: on_success
+      # 
+      # - store_artifacts:
+      #     path: /tmp/docker-images
+      #     destination: docker-images
       
+      # Image size analysis
       - run:
           name: Analyze Image Size
           command: |
             mkdir -p /tmp/image-analysis
             docker images << parameters.service_name >>:${CIRCLE_SHA1} > /tmp/image-analysis/size.txt
-            # Using 'tee' instead of '>>' just to be extra safe with parsers, though >> is usually fine
-            docker history << parameters.service_name >>:${CIRCLE_SHA1} | tee -a /tmp/image-analysis/layers.txt
+            docker history << parameters.service_name >>:${CIRCLE_SHA1} >> /tmp/image-analysis/layers.txt
       
       - store_artifacts:
           path: /tmp/image-analysis
           destination: image-analysis
+      
+      # --- COMMENTED OUT: PUSH TO AWS ECR ---
+      # - run:
+      #     name: Authenticate with ECR
+      #     command: |
+      #       aws ecr get-login-password --region $AWS_REGION | \
+      #         docker login --username AWS --password-stdin \
+      #         $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      
+      # - run:
+      #     name: Tag and Push Images
+      #     command: |
+      #       # Push with commit SHA
+      #       docker tag << parameters.service_name >>:${CIRCLE_SHA1} \
+      #         $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:${CIRCLE_SHA1}
+      #       docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:${CIRCLE_SHA1}
+            
+      #       # Push with 'latest' tag
+      #       if [ "${CIRCLE_BRANCH}" == "main" ]; then
+      #         docker tag << parameters.service_name >>:${CIRCLE_SHA1} \
+      #           $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:latest
+      #         docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:latest
+      #       fi
+      
+      # - run:
+      #     name: Store Image Digest
+      #     command: |
+      #       mkdir -p /tmp/deployment-info
+      #       docker inspect --format='{{index .RepoDigests 0}}' \
+      #         $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<< parameters.service_name >>:${CIRCLE_SHA1} \
+      #         > /tmp/deployment-info/<< parameters.service_name >>-digest.txt
+      
+      # - store_artifacts:
+      #     path: /tmp/deployment-info
+      #     destination: deployment-info
 
 executors:
   docker-builder:
@@ -172,93 +231,51 @@ jobs:
   build-gateway:
     executor: docker-builder
     steps:
-      - when:
-          condition:
-            or:
-              - << pipeline.parameters.run-api-gateway >>
-              - << pipeline.parameters.trigger-all >>
-          steps:
-            - build-scan-push:
-                service_name: "fitsync-api-gateway"
-                folder_path: "./services/api-gateway"
-
+      - build-scan-push:
+          service_name: "fitsync-api-gateway"
+          folder_path: "./services/api-gateway"
+  
   build-notification:
     executor: docker-builder
     steps:
-      - when:
-          condition:
-            or:
-              - << pipeline.parameters.run-notification-service >>
-              - << pipeline.parameters.trigger-all >>
-          steps:
-            - build-scan-push:
-                service_name: "fitsync-notification-service"
-                folder_path: "./services/notification-service"
-
+      - build-scan-push:
+          service_name: "fitsync-notification-service"
+          folder_path: "./services/notification-service"
+  
   build-progress:
     executor: docker-builder
     steps:
-      - when:
-          condition:
-            or:
-              - << pipeline.parameters.run-progress-service >>
-              - << pipeline.parameters.trigger-all >>
-          steps:
-            - build-scan-push:
-                service_name: "fitsync-progress-service"
-                folder_path: "./services/progress-service"
-
+      - build-scan-push:
+          service_name: "fitsync-progress-service"
+          folder_path: "./services/progress-service"
+  
   build-schedule:
     executor: docker-builder
     steps:
-      - when:
-          condition:
-            or:
-              - << pipeline.parameters.run-schedule-service >>
-              - << pipeline.parameters.trigger-all >>
-          steps:
-            - build-scan-push:
-                service_name: "fitsync-schedule-service"
-                folder_path: "./services/schedule-service"
-
+      - build-scan-push:
+          service_name: "fitsync-schedule-service"
+          folder_path: "./services/schedule-service"
+  
   build-training:
     executor: docker-builder
     steps:
-      - when:
-          condition:
-            or:
-              - << pipeline.parameters.run-training-service >>
-              - << pipeline.parameters.trigger-all >>
-          steps:
-            - build-scan-push:
-                service_name: "fitsync-training-service"
-                folder_path: "./services/training-service"
-
+      - build-scan-push:
+          service_name: "fitsync-training-service"
+          folder_path: "./services/training-service"
+  
   build-user:
     executor: docker-builder
     steps:
-      - when:
-          condition:
-            or:
-              - << pipeline.parameters.run-user-service >>
-              - << pipeline.parameters.trigger-all >>
-          steps:
-            - build-scan-push:
-                service_name: "fitsync-user-service"
-                folder_path: "./services/user-service"
-
+      - build-scan-push:
+          service_name: "fitsync-user-service"
+          folder_path: "./services/user-service"
+  
   build-frontend:
     executor: docker-builder
     steps:
-      - when:
-          condition:
-            or:
-              - << pipeline.parameters.run-frontend >>
-              - << pipeline.parameters.trigger-all >>
-          steps:
-            - build-scan-push:
-                service_name: "fitsync-frontend"
-                folder_path: "./frontend"
+      - build-scan-push:
+          service_name: "fitsync-frontend"
+          folder_path: "./frontend"
 
 parameters:
   run-api-gateway:
@@ -288,6 +305,8 @@ parameters:
 
 workflows:
   build_microservices:
+    # Path filtering from config.yml already controls which jobs run
+    # No need for 'when' conditions here
     jobs:
       - build-gateway
       - build-notification
