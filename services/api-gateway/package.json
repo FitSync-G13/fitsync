@@ -26,6 +26,6 @@
   "overrides": {
     "cross-spawn": "7.0.6",
     "glob": "10.4.5",
-    "jws": "3.2.5"
+    "jws": "3.2.3"
   }
 }
