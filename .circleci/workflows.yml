@@ -280,47 +280,48 @@ parameters:
     default: false
 
 workflows:
-  build-microservices:
+  build_microservices:
     jobs:
       - build-gateway:
           # context: aws-production  <-- REMOVED to avoid error
           when: 
             or:
-              - << pipeline.parameters.run-api-gateway >>
-              - << pipeline.parameters.trigger-all >>
+              - "<< pipeline.parameters.run-api-gateway >>"
+              - "<< pipeline.parameters.trigger-all >>"
 
       - build-notification:
           when: 
             or:
-              - << pipeline.parameters.run-notification-service >>
-              - << pipeline.parameters.trigger-all >>
+              - "<< pipeline.parameters.run-notification-service >>"
+              - "<< pipeline.parameters.trigger-all >>"
 
       - build-progress:
           when: 
             or:
-              - << pipeline.parameters.run-progress-service >>
-              - << pipeline.parameters.trigger-all >>
+              - "<< pipeline.parameters.run-progress-service >>"
+              - "<< pipeline.parameters.trigger-all >>"
 
       - build-schedule:
           when: 
             or:
-              - << pipeline.parameters.run-schedule-service >>
-              - << pipeline.parameters.trigger-all >>
+              - "<< pipeline.parameters.run-schedule-service >>"
+              - "<< pipeline.parameters.trigger-all >>"
 
       - build-training:
           when: 
             or:
-              - << pipeline.parameters.run-training-service >>
-              - << pipeline.parameters.trigger-all >>
+              - "<< pipeline.parameters.run-training-service >>"
+              - "<< pipeline.parameters.trigger-all >>"
 
       - build-user:
           when: 
             or:
-              - << pipeline.parameters.run-user-service >>
-              - << pipeline.parameters.trigger-all >>
+              - "<< pipeline.parameters.run-user-service >>"
+              - "<< pipeline.parameters.trigger-all >>"
               
       - build-frontend:
           when: 
             or:
-              - << pipeline.parameters.run-frontend >>
-              - << pipeline.parameters.trigger-all >>
+              - "<< pipeline.parameters.run-frontend >>"
+              - "<< pipeline.parameters.trigger-all >>"
+
