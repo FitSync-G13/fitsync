@@ -1,29 +1,23 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/reference/configuration-reference
 version: 2.1
-setup: true
+
+# Orbs are reusable packages of CircleCI configuration that you may share across projects, enabling you to create encapsulated, parameterized commands, jobs, and executors that can be used across multiple projects.
+# See: https://circleci.com/docs/orbs/use/orb-intro/
 orbs:
-  path-filtering: circleci/path-filtering@1.0.0
+  # See the Node orb documentation here: https://circleci.com/developer/orbs/orb/circleci/node
+  node: circleci/node@5.2
 
-parameters:
-  trigger-all:
-    type: boolean
-    default: false
-
+# Orchestrate jobs using workflows
+# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
 workflows:
-  always-run:
+  sample: # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - path-filtering/filter:
-          name: check-changes
-          mapping: |
-            services/api-gateway/.* run-api-gateway true
-            services/notification-service/.* run-notification-service true
-            services/progress-service/.* run-progress-service true
-            services/schedule-service/.* run-schedule-service true
-            services/training-service/.* run-training-service true
-            services/user-service/.* run-user-service true
-            frontend/.* run-frontend true
-          base-revision: main
-          config-path: .circleci/workflows.yml
-          pipeline-parameters: >-
-            {
-              "trigger-all": << pipeline.parameters.trigger-all >>
-            }
+      - node/test:
+          # This is the node version to use for the `cimg/node` tag
+          # Relevant tags can be found on the CircleCI Developer Hub
+          # https://circleci.com/developer/images/image/cimg/node
+          version: '16.10'
+          # If you are using yarn, change the line below from "npm" to "yarn"
+          pkg-manager: npm
