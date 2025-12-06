@@ -16,6 +16,7 @@ workflows:
           name: check-changes
           base-revision: main
           config-path: .circleci/workflows.yml
+          tag: "3.10"
 
           # Mapping determines what run-flags are turned on
           mapping: |
