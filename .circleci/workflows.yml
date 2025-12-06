@@ -160,7 +160,6 @@ commands:
           path: /tmp/image-analysis
           destination: image-analysis
       
-      # --- COMMENTED OUT: PUSH TO AWS ECR ---
       # - run:
       #     name: Authenticate with ECR
       #     command: |
@@ -283,45 +282,64 @@ workflows:
   build_microservices:
     jobs:
       - build-gateway:
-          # context: aws-production  <-- REMOVED to avoid error
-          when: 
+          filters:
+            branches:
+              only: /.*/
+          when:
             or:
-              - "<< pipeline.parameters.run-api-gateway >>"
-              - "<< pipeline.parameters.trigger-all >>"
+              - equal: [ true, << pipeline.parameters.run-api-gateway >> ]
+              - equal: [ true, << pipeline.parameters.trigger-all >> ]
 
       - build-notification:
-          when: 
+          filters:
+            branches:
+              only: /.*/
+          when:
             or:
-              - "<< pipeline.parameters.run-notification-service >>"
-              - "<< pipeline.parameters.trigger-all >>"
+              - equal: [ true, << pipeline.parameters.run-notification-service >> ]
+              - equal: [ true, << pipeline.parameters.trigger-all >> ]
 
       - build-progress:
-          when: 
+          filters:
+            branches:
+              only: /.*/
+          when:
             or:
-              - "<< pipeline.parameters.run-progress-service >>"
-              - "<< pipeline.parameters.trigger-all >>"
+              - equal: [ true, << pipeline.parameters.run-progress-service >> ]
+              - equal: [ true, << pipeline.parameters.trigger-all >> ]
 
       - build-schedule:
-          when: 
+          filters:
+            branches:
+              only: /.*/
+          when:
             or:
-              - "<< pipeline.parameters.run-schedule-service >>"
-              - "<< pipeline.parameters.trigger-all >>"
+              - equal: [ true, << pipeline.parameters.run-schedule-service >> ]
+              - equal: [ true, << pipeline.parameters.trigger-all >> ]
 
       - build-training:
-          when: 
+          filters:
+            branches:
+              only: /.*/
+          when:
             or:
-              - "<< pipeline.parameters.run-training-service >>"
-              - "<< pipeline.parameters.trigger-all >>"
+              - equal: [ true, << pipeline.parameters.run-training-service >> ]
+              - equal: [ true, << pipeline.parameters.trigger-all >> ]
 
       - build-user:
-          when: 
+          filters:
+            branches:
+              only: /.*/
+          when:
             or:
-              - "<< pipeline.parameters.run-user-service >>"
-              - "<< pipeline.parameters.trigger-all >>"
+              - equal: [ true, << pipeline.parameters.run-user-service >> ]
+              - equal: [ true, << pipeline.parameters.trigger-all >> ]
               
       - build-frontend:
-          when: 
+          filters:
+            branches:
+              only: /.*/
+          when:
             or:
-              - "<< pipeline.parameters.run-frontend >>"
-              - "<< pipeline.parameters.trigger-all >>"
-
+              - equal: [ true, << pipeline.parameters.run-frontend >> ]
+              - equal: [ true, << pipeline.parameters.trigger-all >> ]
