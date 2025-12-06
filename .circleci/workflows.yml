@@ -11,14 +11,12 @@ commands:
     steps:
       - checkout
       
-      # Restore Docker layer cache
       - restore_cache:
           keys:
-            - docker-{{ .Branch }}-{{ checksum (printf "%s/Dockerfile" parameters.folder_path) }}
+            - docker-{{ .Branch }}-{{ checksum "<< parameters.folder_path >>/Dockerfile" }}
             - docker-{{ .Branch }}
             - docker-main
       
-      # Docker Build
       - run:
           name: Build Docker Image
           command: |
@@ -31,35 +29,32 @@ commands:
               -t << parameters.service_name >>:latest \
               << parameters.folder_path >>
       
-      # Save Docker layer cache
       - save_cache:
-          key: docker-{{ .Branch }}-{{ checksum (printf "%s/Dockerfile" parameters.folder_path) }}
+          key: docker-{{ .Branch }}-{{ checksum "<< parameters.folder_path >>/Dockerfile" }}
           paths:
             - /var/lib/docker
       
-      # Generate build metadata
+      # --- FIX: Replaced 'cat <<EOF' with 'echo' to avoid syntax errors ---
       - run:
           name: Generate Build Info
           command: |
             mkdir -p /tmp/build-metadata
-            # FIX IS HERE: Added backslash before <<EOF
-            cat > /tmp/build-metadata/<< parameters.service_name >>-info.json \<<EOF
-            {
-              "service": "<< parameters.service_name >>",
-              "commit": "${CIRCLE_SHA1}",
-              "branch": "${CIRCLE_BRANCH}",
-              "build_number": "${CIRCLE_BUILD_NUM}",
-              "build_url": "${CIRCLE_BUILD_URL}",
-              "build_time": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
-              "repository": "${CIRCLE_PROJECT_REPONAME}"
-            }
-            EOF
+            FILE="/tmp/build-metadata/<< parameters.service_name >>-info.json"
+            
+            echo "{" > "$FILE"
+            echo "  \"service\": \"<< parameters.service_name >>\"," >> "$FILE"
+            echo "  \"commit\": \"${CIRCLE_SHA1}\"," >> "$FILE"
+            echo "  \"branch\": \"${CIRCLE_BRANCH}\"," >> "$FILE"
+            echo "  \"build_number\": \"${CIRCLE_BUILD_NUM}\"," >> "$FILE"
+            echo "  \"build_url\": \"${CIRCLE_BUILD_URL}\"," >> "$FILE"
+            echo "  \"build_time\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"," >> "$FILE"
+            echo "  \"repository\": \"${CIRCLE_PROJECT_REPONAME}\"" >> "$FILE"
+            echo "}" >> "$FILE"
       
       - store_artifacts:
           path: /tmp/build-metadata
           destination: build-info
       
-      # Security Scan (Trivy)
       - run:
           name: Install Trivy
           command: |
@@ -71,8 +66,18 @@ commands:
             mkdir -p /tmp/trivy-reports
             
             trivy image \
+              --format json \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-vulnerabilities.json \
+              << parameters.service_name >>:${CIRCLE_SHA1}
+            
+            trivy image \
               --format table \
               --output /tmp/trivy-reports/<< parameters.service_name >>-vulnerabilities.txt \
+              << parameters.service_name >>:${CIRCLE_SHA1}
+            
+            trivy image \
+              --format sarif \
+              --output /tmp/trivy-reports/<< parameters.service_name >>-vulnerabilities.sarif \
               << parameters.service_name >>:${CIRCLE_SHA1}
       
       - run:
@@ -135,7 +140,8 @@ commands:
           command: |
             mkdir -p /tmp/image-analysis
             docker images << parameters.service_name >>:${CIRCLE_SHA1} > /tmp/image-analysis/size.txt
-            docker history << parameters.service_name >>:${CIRCLE_SHA1} >> /tmp/image-analysis/layers.txt
+            # Using 'tee' instead of '>>' just to be extra safe with parsers, though >> is usually fine
+            docker history << parameters.service_name >>:${CIRCLE_SHA1} | tee -a /tmp/image-analysis/layers.txt
       
       - store_artifacts:
           path: /tmp/image-analysis
