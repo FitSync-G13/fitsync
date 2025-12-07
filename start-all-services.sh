@@ -191,7 +191,7 @@ echo "   cd services/api-gateway && npm run dev"
 echo ""
 
 echo -e "${BLUE}Or use Docker Compose to run everything:${NC}"
-echo "   docker-compose up -d"
+echo "   docker-compose up -d --build"
 echo ""
 
 echo "📊 Service Ports:"

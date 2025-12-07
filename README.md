@@ -52,7 +52,7 @@ FitSync is a comprehensive personal training management system designed for gyms
 **Option 1: Docker Compose (Recommended)**
 ```bash
 cd fitsync
-docker-compose up -d
+docker-compose up -d --build
 ```
 
 **Option 2: Using Startup Scripts**

@@ -20,14 +20,16 @@ This method starts everything with a single command:
 # Navigate to the project directory
 cd fitsync
 
-# Start all services
-docker-compose up -d
+# Start all services (build images first)
+docker-compose up -d --build
 
 # Wait 30-60 seconds for all services to initialize
 
 # Check that all services are running
 docker-compose ps
 ```
+
+**Note:** The `--build` flag ensures all Docker images are built with the latest dependencies. This is essential when running for the first time after cloning the repository.
 
 **Expected output:**
 ```
@@ -398,7 +400,7 @@ docker-compose logs
 
 # Remove old containers and try again
 docker-compose down -v
-docker-compose up -d
+docker-compose up -d --build
 ```
 
 ### Port Already in Use
@@ -455,6 +457,30 @@ docker-compose logs userdb
    cd frontend
    npm start
    ```
+
+### Frontend Shows "Cannot find module" Errors
+
+**Problem:** Frontend displays errors like "Cannot find module 'framer-motion'" or other dependency errors
+
+**Solution:**
+This happens when Docker containers start without properly installed dependencies. Fix it by rebuilding:
+
+```bash
+# Option 1: Rebuild all services
+docker-compose down
+docker-compose up -d --build
+
+# Option 2: Rebuild only frontend
+docker-compose down
+docker-compose build --no-cache frontend
+docker-compose up -d
+
+# Option 3: Install dependencies locally first
+cd frontend
+npm install
+cd ..
+docker-compose up -d
+```
 
 ### Token Expired
 
