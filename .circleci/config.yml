@@ -1,0 +1,40 @@
+version: 2.1
+setup: true
+
+orbs:
+  path-filtering: circleci/path-filtering@1.1.0
+
+parameters:
+  trigger-all:
+    type: boolean
+    default: false
+
+workflows:
+  always-run:
+    jobs:
+      - path-filtering/filter:
+          name: check-changes
+          base-revision: main
+          config-path: .circleci/workflows.yml
+          tag: "3.10"
+
+          # Mapping determines what run-flags are turned on
+          mapping: |
+            # When trigger-all=true → all run-* parameters get set to true
+            .* run-api-gateway << pipeline.parameters.trigger-all >>
+            .* run-notification-service << pipeline.parameters.trigger-all >>
+            .* run-progress-service << pipeline.parameters.trigger-all >>
+            .* run-schedule-service << pipeline.parameters.trigger-all >>
+            .* run-training-service << pipeline.parameters.trigger-all >>
+            .* run-user-service << pipeline.parameters.trigger-all >>
+            .* run-frontend << pipeline.parameters.trigger-all >>
+
+            # Normal path-based triggers
+            services/api-gateway/.* run-api-gateway true
+            services/notification-service/.* run-notification-service true
+            services/progress-service/.* run-progress-service true
+            services/schedule-service/.* run-schedule-service true
+            services/training-service/.* run-training-service true
+            services/user-service/.* run-user-service true
+            frontend/.* run-frontend true
+
