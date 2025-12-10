@@ -204,7 +204,7 @@ const LoginForm = () => {
                                 {
                                     role: "Gym Owner",
                                     email: "gym@fitsync.com",
-                                    password: "Gym@123",
+                                    password: "GymOwner@123",
                                     icon: User,
                                 },
                             ].map((user) => (
